@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow · Pro Edition</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --text-color: #1e293b;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --border-color: rgba(226, 232, 240, 0.8);
+            --text-muted: #64748b;
+            --btn-bg: white;
+            --btn-border: #cbd5e1;
+            --input-bg: #f8fafc;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --panel-bg: #ffffff;
+            --shadow-sm: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+            --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+        }
+        body.dark-mode {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --card-bg: rgba(30, 41, 59, 0.85);
+            --border-color: rgba(51, 65, 85, 0.8);
+            --text-muted: #94a3b8;
+            --btn-bg: #1e293b;
+            --btn-border: #475569;
+            --input-bg: #0f172a;
+            --primary: #6366f1;
+            --primary-hover: #818cf8;
+            --panel-bg: #1e293b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text-color); }
+        body {
+            background: var(--bg-color);
+            background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+                              radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+            padding: 2rem 1rem; min-height: 100vh; display: flex; justify-content: center;
+            transition: background-color 0.4s ease;
+        }
+        .dashboard { max-width: 1400px; width: 100%; }
+        header { margin-bottom: 2rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1.5rem; }
+        header h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, var(--primary), #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; }
+        header p { color: var(--text-muted); font-size: 1.05rem; margin-top: 0.2rem; }
+        .header-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+        .action-header-btn { background: var(--btn-bg); border: 1px solid var(--btn-border); color: var(--text-color); padding: 0.6rem 1.4rem; border-radius: 50px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease; box-shadow: var(--shadow-sm); }
+        .action-header-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .excel-btn-import { background: #10b981; border-color: #10b981; color: white; }
+        .excel-btn-export { background: var(--primary); border-color: var(--primary); color: white; }
+        .excel-btn-import, .excel-btn-export { color: #fff; }
+        #fileInput { display: none; }
+
+        .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 1.5rem; border-radius: 20px; box-shadow: var(--shadow-md); border: 1px solid var(--border-color); transition: transform 0.3s ease; }
+        .stat-card:hover { transform: translateY(-4px); }
+        .stat-label { font-size: 0.85rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; color: var(--text-muted); }
+        .stat-value { font-size: 2.8rem; font-weight: 800; margin-top: 0.5rem; display: block; background: linear-gradient(135deg, var(--text-color), var(--text-muted)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .card { background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; padding: 2rem; box-shadow: var(--shadow-md); border: 1px solid var(--border-color); margin-bottom: 2rem; }
+        .form-card h2, .table-card h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; align-items: end; }
+        .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        .form-group label { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+        .form-group input, .form-group select { padding: 0.8rem 1.2rem; border: 2px solid var(--border-color); border-radius: 12px; font-size: 0.95rem; background: var(--input-bg); color: var(--text-color); transition: all 0.2s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        .btn-submit { background: var(--primary); color: white; border: none; padding: 0.9rem 2rem; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow-sm); width: 100%; white-space: nowrap; }
+        .btn-submit:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .btn-danger { background: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 50px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-submit, .btn-danger { color: #fff; }
+        .filter-group select { padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-color); }
+
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { padding: 1rem; border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.85rem; }
+        td { padding: 1rem; border-bottom: 1px solid var(--border-color); font-size: 0.95rem; }
+        tr:hover td { background: rgba(0,0,0,0.02); }
+        body.dark-mode tr:hover td { background: rgba(255,255,255,0.02); }
+        .status-badge { padding: 0.4rem 0.8rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600; }
+        .status-completed { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        body.dark-mode .status-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        body.dark-mode .status-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .status-badge { -webkit-text-fill-color: currentColor; }
+        .action-btn { background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; }
+
+        .charts-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .chart-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.3px; }
+        .chart-box { position: relative; height: 250px; }
+
+        /* Reminder banner */
+        .reminder-banner { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.8rem; padding: 1rem 1.25rem; border-radius: 18px; background: var(--card-bg); border: 1px solid var(--border-color); box-shadow: var(--shadow-md); backdrop-filter: blur(12px); }
+        .reminder-banner[hidden] { display: none; }
+        .rb-ring { position: relative; width: 56px; height: 56px; flex: none; }
+        .rb-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .rb-ring circle { fill: none; stroke-width: 6; stroke-linecap: round; }
+        .rb-track { stroke: var(--border-color); }
+        .rb-fill { stroke: #10b981; stroke-dasharray: 150.8; stroke-dashoffset: 150.8; transition: stroke-dashoffset .6s ease; }
+        .rb-ring span { position: absolute; inset: 0; display: grid; place-items: center; font-size: .8rem; font-weight: 700; }
+        .rb-copy { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 2px; }
+        .rb-copy strong { font-size: 1.05rem; }
+        .rb-copy span { color: var(--text-muted); font-size: .9rem; }
+        .rb-actions { display: flex; gap: 8px; }
+        .pill { border-radius: 50px; padding: .5rem 1.2rem; font-weight: 600; font-size: .9rem; cursor: pointer; border: 1px solid var(--btn-border); background: var(--btn-bg); }
+        .pill.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .pill:disabled { opacity: .5; cursor: not-allowed; }
+
+        /* Alerts */
+        .alerts-wrap { position: relative; }
+        #alertsBtn { display: inline-flex; align-items: center; gap: 8px; }
+        #alertsBtn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+        #alertsBtn[data-state=on] .dot { background: #10b981; }
+        #alertsBtn[data-state=paused] .dot { background: #f59e0b; }
+        #alertsBtn[data-state=blocked] .dot { background: #ef4444; }
+        .alerts-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(340px, 88vw); z-index: 50; padding: 1.2rem; border-radius: 18px; background: var(--panel-bg); border: 1px solid var(--border-color); box-shadow: var(--shadow-md), 0 20px 40px rgb(0 0 0 / .12); display: flex; flex-direction: column; gap: .9rem; }
+        .alerts-panel[hidden] { display: none; }
+        .alerts-panel p { color: var(--text-muted); font-size: .88rem; line-height: 1.45; }
+        .alerts-panel select { padding: .6rem .9rem; border-radius: 10px; border: 1px solid var(--border-color); background: var(--input-bg); }
+        .alerts-panel label { font-size: .85rem; font-weight: 600; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; }
+        .checks { list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: .8rem; color: var(--text-muted); }
+        .checks li.ok::before { content: '✅ '; }
+        .checks li.bad::before { content: '❌ '; }
+        .checks li.warn::before { content: '⚠️ '; }
+        .checks li { color: var(--text-muted); }
+
+        .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; background: #1e1b4b; color: #fff; padding: .7rem 1.2rem; border-radius: 50px; font-size: .9rem; font-weight: 500; box-shadow: var(--shadow-md); transition: .25s; pointer-events: none; z-index: 60; max-width: 92vw; text-align: center; }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+        .toast { color: #fff; }
+        button:focus-visible, select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) { .toast, .rb-fill { transition: none; } }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <header>
+            <div>
+                <h1>📋 TaskFlow</h1>
+                <p>Track, manage, and export your daily goals.</p>
+            </div>
+            <div class="header-actions">
+                <button class="action-header-btn" id="themeToggle">🌙 Dark Mode</button>
+                <div class="alerts-wrap">
+                    <button class="action-header-btn" id="alertsBtn" aria-haspopup="dialog" aria-expanded="false" data-state="off">
+                        <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+                        Alerts <span class="dot"></span>
+                    </button>
+                    <div class="alerts-panel" id="alertsPanel" role="dialog" aria-label="Alert settings" hidden>
+                        <strong id="apTitle">Alerts are off</strong>
+                        <p id="apHint"></p>
+                        <ul class="checks" id="apChecks"></ul>
+                        <button class="pill primary" id="apToggle">Turn on alerts</button>
+                        <label>Remind me every
+                            <select id="apInterval">
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="60">1 hour</option>
+                                <option value="180">3 hours</option>
+                                <option value="360">6 hours</option>
+                                <option value="1440">Day</option>
+                            </select>
+                        </label>
+                        <button class="pill" id="apTest">Send test alert</button>
+                    </div>
+                </div>
+                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv">
+                <button class="action-header-btn excel-btn-import" id="importExcelBtn">📤 Import</button>
+                <button class="action-header-btn excel-btn-export" id="exportExcelBtn">📥 Export</button>
+            </div>
+        </header>
+
+        <div id="reminderBanner" class="reminder-banner" role="status" hidden>
+            <div class="rb-ring">
+                <svg viewBox="0 0 56 56"><circle class="rb-track" cx="28" cy="28" r="24"></circle><circle class="rb-fill" id="rbFill" cx="28" cy="28" r="24"></circle></svg>
+                <span id="rbPct">0%</span>
+            </div>
+            <div class="rb-copy"><strong id="rbTitle">0 tasks pending</strong><span id="rbSub"></span></div>
+            <div class="rb-actions">
+                <button class="pill primary" id="viewPending">View pending</button>
+                <button class="pill" id="dismissReminder">Dismiss</button>
+            </div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-card"><span class="stat-label">Today’s hours</span><span class="stat-value" id="totalHoursToday">0.0</span></div>
+            <div class="stat-card"><span class="stat-label">Completed</span><span class="stat-value" id="completedCount">0</span></div>
+            <div class="stat-card"><span class="stat-label">Pending</span><span class="stat-value" id="pendingCount">0</span></div>
+        </div>
+
+        <div class="card form-card">
+            <h2>➕ Add new task</h2>
+            <form id="taskForm">
+                <div class="form-grid">
+                    <div class="form-group"><label for="taskDate">Date</label><input type="date" id="taskDate" required></div>
+                    <div class="form-group"><label for="taskName">Task name</label><input type="text" id="taskName" placeholder="e.g. write report" required></div>
+                    <div class="form-group">
+                        <label for="taskCategory">Category</label>
+                        <select id="taskCategory">
+                            <option value="Work">💼 Work</option>
+                            <option value="Personal">🧘 Personal</option>
+                            <option value="Study">📚 Study</option>
+                            <option value="Other">🔧 Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label for="taskHours">Hours spent</label><input type="number" id="taskHours" step="0.5" min="0.5" max="24" required></div>
+                    <div class="form-group">
+                        <label for="taskStatus">Status</label>
+                        <select id="taskStatus">
+                            <option value="Completed">✅ Completed</option>
+                            <option value="Pending" selected>⏳ Pending</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:flex-end;"><button type="submit" class="btn-submit">✚ Save Task</button></div>
+                </div>
+            </form>
+        </div>
+
+        <div class="charts-row">
+            <div class="card chart-card"><h3>📊 Time per day (Last 7 Days)</h3><div class="chart-box"><canvas id="barChart"></canvas></div></div>
+            <div class="card chart-card"><h3>🥧 Total by category</h3><div class="chart-box"><canvas id="pieChart"></canvas></div></div>
+        </div>
+
+        <div class="card table-card">
+            <h2>
+                📌 Task History
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <span class="filter-group"><select id="filterStatus"><option value="All">All statuses</option><option value="Pending">Pending</option><option value="Completed">Completed</option></select></span>
+                    <span class="filter-group">
+                        <select id="filterCategory">
+                            <option value="All">All Categories</option>
+                            <option value="Work">Work</option>
+                            <option value="Personal">Personal</option>
+                            <option value="Study">Study</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </span>
+                    <button id="clearAllBtn" class="btn-danger">🗑️ Clear All</button>
+                </div>
+            </h2>
+            <div class="table-wrapper">
+                <table id="taskTable">
+                    <thead><tr><th>Done</th><th>Date</th><th>Task</th><th>Category</th><th>Hours</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody id="taskTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script>
+        const $ = id => document.getElementById(id);
+        const pad = n => String(n).padStart(2, '0');
+        // Local-time date (the old toISOString() used UTC, which shifts the day for your timezone)
+        const localISO = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const todayStr = () => localISO();
+
+        // ========== THEME ==========
+        const themeToggle = $('themeToggle');
+        if (localStorage.getItem('theme') === 'dark') { document.body.classList.add('dark-mode'); themeToggle.innerText = '☀️ Light Mode'; }
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const dark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('theme', dark ? 'dark' : 'light');
+            themeToggle.innerText = dark ? '☀️ Light Mode' : '🌙 Dark Mode';
+            updateCharts();
+        });
+
+        // ========== DATA ==========
+        let tasks = [];
+        let barChartInst, pieChartInst;
+
+        function loadTasks() {
+            try { tasks = JSON.parse(localStorage.getItem('taskflow_tasks_pro') || '[]'); } catch (e) { tasks = []; }
+            if (!Array.isArray(tasks)) tasks = [];
+        }
+        function saveTasks() {
+            localStorage.setItem('taskflow_tasks_pro', JSON.stringify(tasks));
+            syncState();
+        }
+        const escapeHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        // ========== ALERTS ==========
+        const LAST_KEY = 'taskflow_last_alert', INT_KEY = 'taskflow_alert_interval', MUTE_KEY = 'taskflow_alerts_muted';
+        let bannerDismissed = false, lastPending = 0, swReg = null, swError = '';
+
+        const alertInterval = () => Number(localStorage.getItem(INT_KEY) || 60);
+        const alertsMuted = () => localStorage.getItem(MUTE_KEY) === '1';
+
+        function toast(msg) {
+            const el = $('toast'); el.textContent = msg; el.classList.add('show');
+            clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove('show'), 3500);
+        }
+
+        function getStats() {
+            const today = todayStr();
+            const pend = tasks.filter(t => t.status !== 'Completed').sort((a, b) => a.date.localeCompare(b.date));
+            const total = tasks.length, done = total - pend.length;
+            return { total, done, pending: pend.length, overdue: pend.filter(t => t.date < today).length, next: pend[0], pct: total ? Math.round(done / total * 100) : 0 };
+        }
+
+        // Icon drawn in code, so no image file can go missing
+        let _icon;
+        function appIcon() {
+            if (_icon) return _icon;
+            try {
+                const c = document.createElement('canvas'); c.width = c.height = 192;
+                const x = c.getContext('2d');
+                const g = x.createLinearGradient(0, 0, 192, 192); g.addColorStop(0, '#4f46e5'); g.addColorStop(1, '#ec4899');
+                x.fillStyle = g; x.beginPath(); x.roundRect(0, 0, 192, 192, 40); x.fill();
+                x.strokeStyle = '#fff'; x.lineWidth = 16; x.lineCap = 'round'; x.lineJoin = 'round';
+                x.beginPath(); x.moveTo(56, 100); x.lineTo(84, 128); x.lineTo(138, 68); x.stroke();
+                _icon = c.toDataURL('image/png');
+            } catch (e) { _icon = undefined; }
+            return _icon;
+        }
+
+        function progressCard(s) {
+            try {
+                const c = document.createElement('canvas'); c.width = 720; c.height = 360;
+                const x = c.getContext('2d');
+                const g = x.createLinearGradient(0, 0, 720, 360); g.addColorStop(0, '#1e1b4b'); g.addColorStop(1, '#4f46e5');
+                x.fillStyle = g; x.fillRect(0, 0, 720, 360);
+                x.lineWidth = 24; x.lineCap = 'round';
+                x.strokeStyle = 'rgba(255,255,255,.16)'; x.beginPath(); x.arc(180, 180, 110, 0, Math.PI * 2); x.stroke();
+                if (s.pct > 0) { x.strokeStyle = '#34d399'; x.beginPath(); x.arc(180, 180, 110, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * s.pct / 100); x.stroke(); }
+                x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = '700 64px system-ui, sans-serif'; x.fillText(s.pct + '%', 180, 202);
+                x.textAlign = 'left'; x.font = '800 120px system-ui, sans-serif'; x.fillText(s.pending, 360, 200);
+                x.fillStyle = 'rgba(255,255,255,.78)'; x.font = '600 36px system-ui, sans-serif'; x.fillText(s.pending === 1 ? 'task pending' : 'tasks pending', 360, 252);
+                x.font = '500 28px system-ui, sans-serif'; x.fillText(`${s.done} of ${s.total} completed`, 360, 296);
+                return c.toDataURL('image/png');
+            } catch (e) { return undefined; }
+        }
+
+        function updateBanner() {
+            const s = getStats();
+            if (s.pending > lastPending) bannerDismissed = false;
+            lastPending = s.pending;
+            $('reminderBanner').hidden = s.pending === 0 || bannerDismissed;
+            $('rbTitle').textContent = `${s.pending} task${s.pending === 1 ? '' : 's'} pending`;
+            $('rbSub').textContent = `${s.done} of ${s.total} done` + (s.overdue ? `, ${s.overdue} overdue` : '');
+            $('rbPct').textContent = s.pct + '%';
+            $('rbFill').style.strokeDashoffset = 150.8 * (1 - s.pct / 100);
+            document.title = s.pending ? `(${s.pending}) TaskFlow · Pro Edition` : 'TaskFlow · Pro Edition';
+            if ('setAppBadge' in navigator) { (s.pending ? navigator.setAppBadge(s.pending) : navigator.clearAppBadge()).catch(() => {}); }
+        }
+
+        // ---- service worker ----
+        async function registerSW() {
+            if (!('serviceWorker' in navigator)) { swError = 'Service workers not supported'; return; }
+            if (location.protocol === 'file:') { swError = 'Opened as a file. Run it through a local server (e.g. Live Server)'; return; }
+            try {
+                swReg = await navigator.serviceWorker.register('./sw.js');
+                swError = '';
+                await navigator.serviceWorker.ready;
+                syncState();
+            } catch (e) { swError = 'sw.js could not load (is it next to index.html?)'; console.error(e); }
+            renderAlerts();
+        }
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'show-pending') showPending(); });
+            navigator.serviceWorker.addEventListener('controllerchange', renderAlerts);
+        }
+
+        // Keep the service worker's copy of the state fresh (used for background reminders)
+        function syncState() {
+            const sw = (swReg && swReg.active) || (navigator.serviceWorker && navigator.serviceWorker.controller);
+            if (!sw) return;
+            const s = getStats();
+            sw.postMessage({ type: 'state', state: {
+                pending: s.pending, done: s.done, total: s.total, overdue: s.overdue, next: s.next ? s.next.name : '',
+                interval: alertInterval(), muted: alertsMuted() || alertState() !== 'on',
+                last: Number(localStorage.getItem(LAST_KEY) || 0), icon: appIcon()
+            } });
+        }
+
+        async function enablePeriodicSync() {
+            try {
+                if (swReg && 'periodicSync' in swReg) await swReg.periodicSync.register('taskflow-reminder', { minInterval: 60 * 60 * 1000 });
+            } catch (e) { /* only works for installed apps; safe to ignore */ }
+        }
+
+        async function notifyPending() {
+            if (!('Notification' in window)) throw new Error('notifications are not supported in this browser');
+            if (Notification.permission !== 'granted') throw new Error('permission not granted');
+            const s = getStats();
+            const title = s.pending ? `${s.pending} task${s.pending === 1 ? '' : 's'} still pending` : 'All caught up 🎉';
+            const body = (s.next ? `Next up: ${s.next.name}\n` : '') + `${s.done} of ${s.total} completed` + (s.overdue ? `, ${s.overdue} overdue` : '');
+            const opts = { body, icon: appIcon(), badge: appIcon(), image: progressCard(s), tag: 'taskflow-pending', renotify: true, requireInteraction: true,
+                data: { url: './index.html?view=pending' }, actions: [{ action: 'view', title: 'View pending' }, { action: 'dismiss', title: 'Dismiss' }] };
+            // Prefer the service worker (works in background); otherwise use a plain notification
+            if (swReg) {
+                try { await swReg.showNotification(title, opts); return; } catch (e) { console.warn('SW notification failed, using fallback', e); }
+            }
+            const n = new Notification(title, { body, icon: opts.icon, tag: opts.tag });
+            n.onclick = () => { window.focus(); showPending(); n.close(); };
+        }
+
+        function alertState() {
+            if (!('Notification' in window)) return 'unsupported';
+            if (Notification.permission === 'denied') return 'blocked';
+            if (Notification.permission === 'granted') return alertsMuted() ? 'paused' : 'on';
+            return 'off';
+        }
+
+        const userAway = () => document.hidden || !document.hasFocus();
+
+        function maybeNotify() {
+            const s = getStats();
+            if (alertState() !== 'on' || s.pending === 0) return;
+            if (Date.now() - Number(localStorage.getItem(LAST_KEY) || 0) < alertInterval() * 60000) return;
+            if (userAway()) {
+                localStorage.setItem(LAST_KEY, Date.now());
+                notifyPending().catch(e => console.error('Alert failed', e));
+                syncState();
+            } else if (!document.hidden) {
+                // Tab is in front: use the in-page banner + toast instead
+                localStorage.setItem(LAST_KEY, Date.now());
+                bannerDismissed = false; updateBanner();
+                toast(`${s.pending} task${s.pending === 1 ? '' : 's'} still pending` + (s.overdue ? `, ${s.overdue} overdue` : ''));
+                syncState();
+            }
+        }
+        document.addEventListener('visibilitychange', () => { if (document.hidden) maybeNotify(); });
+        window.addEventListener('blur', () => setTimeout(maybeNotify, 1500));
+
+        // Timers in hidden tabs get throttled hard; a Worker-based ticker is far more reliable
+        function startTicker() {
+            try {
+                const url = URL.createObjectURL(new Blob(['setInterval(()=>postMessage(1),20000)'], { type: 'text/javascript' }));
+                new Worker(url).onmessage = maybeNotify;
+            } catch (e) { setInterval(maybeNotify, 20000); }
+        }
+
+        function renderAlerts() {
+            const st = alertState();
+            $('alertsBtn').dataset.state = st;
+            const [title, hint, action] = {
+                on: ['Alerts are on', 'You get a reminder while TaskFlow is in the background or another window is in front.', 'Pause alerts'],
+                paused: ['Alerts are paused', 'Resume to get reminders about pending tasks.', 'Resume alerts'],
+                off: ['Alerts are off', 'Get a reminder when tasks are still pending.', 'Turn on alerts'],
+                blocked: ['Alerts are blocked', 'Click the lock icon in the address bar, set Notifications to Allow, then reload.', 'Blocked'],
+                unsupported: ['Alerts unavailable', 'On iPhone, add TaskFlow to your Home Screen first (Share, then Add to Home Screen).', 'Unavailable']
+            }[st];
+            $('apTitle').textContent = title; $('apHint').textContent = hint; $('apToggle').textContent = action;
+            $('apToggle').disabled = st === 'blocked' || st === 'unsupported';
+            $('apTest').disabled = !('Notification' in window) || Notification.permission !== 'granted';
+            $('apInterval').value = String(alertInterval());
+
+            const sw = 'serviceWorker' in navigator && navigator.serviceWorker.controller;
+            const pend = getStats().pending;
+            const checks = [
+                [window.isSecureContext, 'Secure page (HTTPS or localhost)', 'Not secure. Alerts need HTTPS or localhost'],
+                [!!swReg && !swError, 'Background worker registered', swError || 'Background worker not registered'],
+                [!!sw, 'Background worker active', 'Worker not controlling this page yet, reload once'],
+                [Notification.permission === 'granted', 'Browser permission granted', 'Permission: ' + (window.Notification ? Notification.permission : 'n/a')],
+                [pend > 0 ? true : 'warn', `${pend} pending task${pend === 1 ? '' : 's'}`, 'Alerts only fire when something is pending. Add a Pending task']
+            ];
+            $('apChecks').innerHTML = checks.map(([ok, good, bad]) =>
+                ok === 'warn' ? `<li class="warn">${bad}</li>` : `<li class="${ok ? 'ok' : 'bad'}">${escapeHtml(ok ? good : bad)}</li>`).join('');
+        }
+
+        function showPending() {
+            filterCategory.value = 'All'; filterStatus.value = 'Pending'; renderTable();
+            document.querySelector('.table-card').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function initAlerts() {
+            const btn = $('alertsBtn'), panel = $('alertsPanel');
+            const close = () => { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+            btn.addEventListener('click', e => { e.stopPropagation(); panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden)); renderAlerts(); });
+            document.addEventListener('click', e => { if (!panel.hidden && !panel.contains(e.target)) close(); });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { close(); btn.focus(); } });
+
+            $('apToggle').addEventListener('click', async () => {
+                const st = alertState();
+                if (st === 'off') {
+                    const perm = await Notification.requestPermission();
+                    if (perm === 'granted') {
+                        localStorage.setItem(MUTE_KEY, '0'); localStorage.setItem(LAST_KEY, Date.now());
+                        enablePeriodicSync();
+                        try { await notifyPending(); toast('Alerts turned on'); } catch (e) { toast('Alerts on, but test failed: ' + e.message); }
+                    } else toast('Permission was not granted');
+                } else if (st === 'on') { localStorage.setItem(MUTE_KEY, '1'); toast('Alerts paused'); }
+                else if (st === 'paused') { localStorage.setItem(MUTE_KEY, '0'); localStorage.setItem(LAST_KEY, Date.now()); toast('Alerts resumed'); }
+                syncState(); renderAlerts();
+            });
+            $('apInterval').addEventListener('change', e => { localStorage.setItem(INT_KEY, e.target.value); syncState(); });
+            $('apTest').addEventListener('click', async () => {
+                try { await notifyPending(); toast('Test alert sent. If you see nothing, check OS Do Not Disturb / Focus mode'); }
+                catch (e) { toast('Alert failed: ' + e.message); }
+            });
+            $('viewPending').addEventListener('click', showPending);
+            renderAlerts();
+            startTicker();
+            setTimeout(maybeNotify, 3000);
+            if (new URLSearchParams(location.search).get('view') === 'pending') { showPending(); history.replaceState(null, '', location.pathname); }
+        }
+
+        // ========== TABLE ==========
+        const tbody = $('taskTableBody');
+        const filterCategory = $('filterCategory');
+        const filterStatus = $('filterStatus');
+        filterCategory.addEventListener('change', renderTable);
+        filterStatus.addEventListener('change', renderTable);
+
+        function renderTable() {
+            tbody.innerHTML = '';
+            const today = todayStr();
+            let totalHoursToday = 0, completed = 0, pending = 0;
+            tasks.forEach(task => {
+                if (task.date === today) totalHoursToday += Number(task.hours);
+                task.status === 'Completed' ? completed++ : pending++;
+            });
+            $('totalHoursToday').innerText = totalHoursToday.toFixed(1);
+            $('completedCount').innerText = completed;
+            $('pendingCount').innerText = pending;
+            updateBanner();
+
+            let list = [...tasks];
+            if (filterStatus.value !== 'All') list = list.filter(t => t.status === filterStatus.value);
+            if (filterCategory.value !== 'All') list = list.filter(t => t.category === filterCategory.value);
+            list.sort((a, b) => b.date.localeCompare(a.date));
+
+            list.forEach(task => {
+                const row = document.createElement('tr');
+                const done = task.status === 'Completed';
+                row.innerHTML = `
+                    <td><input type="checkbox" class="status-toggle" data-id="${task.id}" ${done ? 'checked' : ''}></td>
+                    <td>${escapeHtml(task.date)}</td>
+                    <td><strong>${escapeHtml(task.name)}</strong></td>
+                    <td>${escapeHtml(task.category)}</td>
+                    <td>${escapeHtml(task.hours)}h</td>
+                    <td><span class="status-badge ${done ? 'status-completed' : 'status-pending'}">${task.status}</span></td>
+                    <td><button class="action-btn delete-btn" data-id="${task.id}" title="delete">🗑️</button></td>`;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Event delegation: one listener, no re-binding after every render
+        tbody.addEventListener('change', e => {
+            if (!e.target.classList.contains('status-toggle')) return;
+            const task = tasks.find(t => t.id === Number(e.target.dataset.id));
+            if (task) { task.status = e.target.checked ? 'Completed' : 'Pending'; saveTasks(); renderTable(); updateCharts(); }
+        });
+        tbody.addEventListener('click', e => {
+            const b = e.target.closest('.delete-btn');
+            if (!b) return;
+            tasks = tasks.filter(t => t.id !== Number(b.dataset.id));
+            saveTasks(); renderTable(); updateCharts();
+        });
+
+        // ========== ADD / CLEAR / DISMISS ==========
+        $('taskForm').addEventListener('submit', e => {
+            e.preventDefault();
+            tasks.push({ id: Date.now(), date: $('taskDate').value, name: $('taskName').value.trim(), category: $('taskCategory').value, hours: Number($('taskHours').value), status: $('taskStatus').value });
+            saveTasks(); renderTable(); updateCharts();
+            e.target.reset();
+            $('taskDate').value = todayStr();
+        });
+        $('clearAllBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all tasks? This cannot be undone.')) { tasks = []; saveTasks(); renderTable(); updateCharts(); }
+        });
+        $('dismissReminder').addEventListener('click', () => { bannerDismissed = true; updateBanner(); });
+
+        // ========== EXPORT / IMPORT ==========
+        $('exportExcelBtn').addEventListener('click', () => {
+            if (tasks.length === 0) return toast('No tasks to export yet');
+            if (typeof XLSX === 'undefined') return toast('Excel library not loaded. Check your connection');
+            const ws = XLSX.utils.json_to_sheet(tasks);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Tasks');
+            XLSX.writeFile(wb, 'TaskFlow_Export.xlsx');
+        });
+
+        const fileInput = $('fileInput');
+        $('importExcelBtn').addEventListener('click', () => fileInput.click());
+
+        function loadXLSX() {
+            if (typeof XLSX !== 'undefined') return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const sc = document.createElement('script');
+                sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+                sc.onload = resolve;
+                sc.onerror = () => reject(new Error('Excel library could not load. Check your internet connection.'));
+                document.head.appendChild(sc);
+            });
+        }
+
+        function toISODate(v) {
+            if (v instanceof Date && !isNaN(v)) { v = new Date(v.getTime() + 60000); return localISO(v); }
+            if (typeof v === 'number') { const d = XLSX.SSF.parse_date_code(v); return d ? `${d.y}-${pad(d.m)}-${pad(d.d)}` : null; }
+            const str = String(v).trim();
+            if (!str) return null;
+            let m = str.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+            if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+            m = str.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+            if (m) return `${m[3]}-${pad(m[2])}-${pad(m[1])}`;
+            const d = new Date(str);
+            return isNaN(d) ? null : localISO(d);
+        }
+
+        const HEAD = {
+            date: ['date', 'day', 'due', 'due date'],
+            name: ['task name', 'task', 'name', 'title', 'work', 'description'],
+            category: ['category', 'type'],
+            hours: ['hours', 'hours spent', 'time', 'hrs'],
+            status: ['status', 'done', 'state']
+        };
+
+        function parseRows(grid) {
+            grid = grid.filter(r => r.some(c => String(c).trim() !== ''));
+            if (!grid.length) return [];
+            const first = grid[0].map(c => String(c).trim().toLowerCase());
+            const col = {};
+            for (const f in HEAD) col[f] = first.findIndex(h => HEAD[f].includes(h));
+            const hasHeader = col.name !== -1 || col.date !== -1;
+            if (!hasHeader) Object.assign(col, { date: 0, name: 1, category: 2, hours: 3, status: 4 });
+            return (hasHeader ? grid.slice(1) : grid).map(r => ({
+                date: col.date > -1 ? r[col.date] : '',
+                name: col.name > -1 ? r[col.name] : '',
+                category: col.category > -1 ? r[col.category] : '',
+                hours: col.hours > -1 ? r[col.hours] : '',
+                status: col.status > -1 ? r[col.status] : ''
+            }));
+        }
+
+        async function importFile(file) {
+            try {
+                await loadXLSX();
+                const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+                let rows = [];
+                for (const name of wb.SheetNames) {
+                    rows = parseRows(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', raw: true }));
+                    if (rows.length) break;
+                }
+                if (!rows.length) throw new Error('the file has no data rows');
+
+                const cats = ['Work', 'Personal', 'Study', 'Other'];
+                const key = t => `${t.date}|${t.name.toLowerCase()}|${t.category}|${t.hours}`;
+                const seen = new Set(tasks.map(key));
+                const today = todayStr();
+                let added = 0, dupes = 0, bad = 0;
+                rows.forEach((r, i) => {
+                    const name = String(r.name).trim();
+                    const date = r.date === '' ? today : toISODate(r.date);
+                    if (!name || !date) { bad++; return; }
+                    const cat = String(r.category).trim().toLowerCase();
+                    const category = cats.find(c => c.toLowerCase() === cat) || 'Other';
+                    const hours = Number(r.hours) > 0 ? Number(r.hours) : 1;
+                    const status = /complete|done|yes|true|✓|✔/i.test(String(r.status)) ? 'Completed' : 'Pending';
+                    const t = { id: Date.now() + i, date, name, category, hours, status };
+                    if (seen.has(key(t))) { dupes++; return; }
+                    seen.add(key(t)); tasks.push(t); added++;
+                });
+                saveTasks(); renderTable(); updateCharts();
+                if (added) toast(`Imported ${added} task${added === 1 ? '' : 's'}` + (dupes ? `, ${dupes} duplicate skipped` : '') + (bad ? `, ${bad} invalid skipped` : ''));
+                else toast(dupes ? 'Nothing new: all tasks already exist' : 'No valid rows found. Needs a Task column.');
+            } catch (err) { console.error(err); toast('Import failed: ' + err.message); }
+        }
+
+        fileInput.addEventListener('change', async e => { const f = e.target.files[0]; if (f) await importFile(f); fileInput.value = ''; });
+        ['dragover', 'drop'].forEach(ev => window.addEventListener(ev, e => e.preventDefault()));
+        window.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) importFile(f); });
+
+        // ========== CHARTS ==========
+        function updateCharts() {
+            if (typeof Chart === 'undefined') return;
+            const textColor = document.body.classList.contains('dark-mode') ? '#f8fafc' : '#1e293b';
+
+            const catCounts = { Work: 0, Personal: 0, Study: 0, Other: 0 };
+            tasks.forEach(t => { if (catCounts[t.category] !== undefined) catCounts[t.category]++; });
+            if (pieChartInst) pieChartInst.destroy();
+            pieChartInst = new Chart($('pieChart'), {
+                type: 'pie',
+                data: { labels: Object.keys(catCounts), datasets: [{ data: Object.values(catCounts), backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ec4899'] }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
+            });
+
+            const days = [...Array(7)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (6 - i)); return localISO(d); });
+            const dayHours = days.map(d => tasks.filter(t => t.date === d).reduce((acc, t) => acc + Number(t.hours), 0));
+            if (barChartInst) barChartInst.destroy();
+            barChartInst = new Chart($('barChart'), {
+                type: 'bar',
+                data: { labels: days.map(d => d.slice(5)), datasets: [{ label: 'Hours', data: dayHours, backgroundColor: '#6366f1' }] },
+                options: { maintainAspectRatio: false, scales: { y: { ticks: { color: textColor } }, x: { ticks: { color: textColor } } }, plugins: { legend: { display: false } } }
+            });
+        }
+
+        // ========== INIT ==========
+        $('taskDate').value = todayStr();
+        loadTasks();
+        renderTable();
+        initAlerts();
+        registerSW();
+        window.addEventListener('load', updateCharts);
+    </script>
+</body>
+</html>
